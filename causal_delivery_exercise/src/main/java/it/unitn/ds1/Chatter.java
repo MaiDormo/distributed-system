@@ -182,9 +182,10 @@ class Chatter extends AbstractActor {
     }
 
     private void updateLocalClock(ChatMsg msg) {
-        for (int i = 0; i < this.vc.length; i++) {
-            this.vc[i] = Math.max(this.vc[i], msg.vc[i]);
-        }
+        // for (int i = 0; i < this.vc.length; i++) {
+        //     this.vc[i] = Math.max(this.vc[i], msg.vc[i]);
+        // }
+        this.vc[msg.senderId]++;
     }
 
     private boolean isDeliverable(ChatMsg msg) {
