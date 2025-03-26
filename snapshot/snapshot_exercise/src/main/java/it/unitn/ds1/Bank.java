@@ -73,6 +73,7 @@ public class Bank extends AbstractActor {
 
   /*-- Actor logic ---------------------------------------------------------- */
 
+  //special method executed as soon as the actor is created
   @Override
   public void preStart() {
     if(this.snapshotInitiator) {
@@ -110,7 +111,7 @@ public class Bank extends AbstractActor {
 
   // start the capture the current state of the bank
   private void captureState() {
-    System.out.println("Starting to capture the state. Bank " + id + " snapId: "+ snapId + " state: " + balance);
+    System.out.println("START: Bank " + id + " snapId: "+ snapId + " state: " + balance);
 
     if (this.stateBeingCaptured) {
       System.err.println("\n\n\nOnly one snapshot at a time is supported\n\n\n");
@@ -125,6 +126,8 @@ public class Bank extends AbstractActor {
     // and thus has as a result "string01" and not "string1"
 
     // TODO 1: Save current balance and enter snapshot mode.
+    this.stateBeingCaptured = true;
+    this.capturedBalance = balance;
   }
 
   private void onJoinGroupMsg(JoinGroupMsg msg) {
@@ -145,8 +148,12 @@ public class Bank extends AbstractActor {
 
   private void onMoney(Money msg) {
     balance += msg.amount;
-
+    
     // TODO 2: implement logic for Money messages during the snapshot
+    if (this.stateBeingCaptured && !this.tokensReceived.contains(getSender())) {
+      this.moneyInTransit += msg.amount;
+    }
+
   }
 
   private void onToken(Token token) {
@@ -156,11 +163,24 @@ public class Bank extends AbstractActor {
     }
 
     this.snapId = token.snapId;
+    
+    if (!this.stateBeingCaptured) {
+      captureState();
+      sendTokens();
+    }
 
-    // TODO 3: manage the first Token reception and the snapshot termination for this node
-    // You can assume there aren't multiple snapshots running concurrently
-    // Remember that tokens are also used to start the snapshot process
-    captureState();
+
+    ActorRef ref = getSender();
+    tokensReceived.add(ref);
+
+    if (tokensReceived.size() == peers.size() && this.stateBeingCaptured) {
+      //we have received all of the snapshot, finish procedure, emptying the values
+      int val = capturedBalance + moneyInTransit;
+      System.out.println("Bank " + id + " snapId: "+ snapId + " state: " + val);
+      this.tokensReceived.clear();
+      this.stateBeingCaptured = false;
+      this.moneyInTransit = 0;
+    }
   }
 
   private void onStartSnapshot(StartSnapshot msg) {
